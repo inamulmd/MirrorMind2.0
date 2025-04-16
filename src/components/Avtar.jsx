@@ -1,17 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { generateAIResponse } from '../api/GeminiAi';
+import { generateAvatarImage } from '../api/ImageApi'; // 👈 Import DeepAI function
 
-const Avatar = () => {
+const Avtar = () => {
   const [userInput, setUserInput] = useState('');
   const [aiResponse, setAiResponse] = useState('');
   const [loading, setLoading] = useState(false);
   const [listening, setListening] = useState(false);
-  const [language, setLanguage] = useState('en-US'); // Default to English
+  const [language, setLanguage] = useState('en-US');
   const [voices, setVoices] = useState([]);
-  const [avatar3D, setAvatar3D] = useState(false);
-  const [userGender, setUserGender] = useState(null); // 'male' or 'female'
+  const [userGender, setUserGender] = useState(null);
 
-  // Fetch available voices on component mount
+  // New states for avatar image
+  const [avatarUrl, setAvatarUrl] = useState(null);
+  const [avatarLoading, setAvatarLoading] = useState(false);
+
+  // Fetch available voices
   useEffect(() => {
     const synth = window.speechSynthesis;
 
@@ -24,14 +28,32 @@ const Avatar = () => {
     } else {
       voicesLoaded();
     }
+
     detectUserGenderByVoice();
   }, []);
 
-  // Function to handle AI response in the requested language, but in English words
+  // Generate avatar when user input changes
+  useEffect(() => {
+    if (userInput.trim()) {
+      generateAvatar(userInput);
+    }
+  }, [userInput]);
+
+  const generateAvatar = async (description) => {
+    try {
+      setAvatarLoading(true);
+      const url = await generateAvatarImage(description);
+      setAvatarUrl(url);
+    } catch (error) {
+      console.error('Error generating avatar:', error);
+    } finally {
+      setAvatarLoading(false);
+    }
+  };
+
   const handleResponseInRequestedLanguage = async (input) => {
     let targetLanguage = language;
 
-    // Friendly name mapping
     const languageMap = {
       'en-US': 'English',
       'hi-IN': 'Hindi',
@@ -46,41 +68,31 @@ const Avatar = () => {
       setAiResponse(response);
       speak(response, targetLanguage);
     } catch (error) {
-      console.error("Error generating AI response:", error);
+      console.error('Error generating AI response:', error);
       setAiResponse("Oops, I couldn't respond right now.");
     }
   };
 
-  // Function to handle speech synthesis
   const speak = (text, language) => {
     const synth = window.speechSynthesis;
 
     if (voices.length === 0) {
-      console.error("No voices available.");
+      console.error('No voices available.');
       return;
     }
 
-    // Get voices matching selected language
-    const languageVoices = voices.filter(voice => voice.lang === language);
+    const languageVoices = voices.filter((voice) => voice.lang === language);
 
-    // Try to pick opposite gender voice
     let selectedVoice;
 
     if (userGender === 'male') {
-      selectedVoice = languageVoices.find(voice =>
-        /female|woman/i.test(voice.name)
-      );
+      selectedVoice = languageVoices.find((voice) => /female|woman/i.test(voice.name));
     } else if (userGender === 'female') {
-      selectedVoice = languageVoices.find(voice =>
-        /male|man/i.test(voice.name)
-      );
+      selectedVoice = languageVoices.find((voice) => /male|man/i.test(voice.name));
     }
 
-    // Fallback to a default voice if no match found
     if (!selectedVoice) {
-      selectedVoice = languageVoices.find(voice =>
-        voice.name.includes("Google")
-      ) || voices[0];
+      selectedVoice = languageVoices.find((voice) => voice.name.includes('Google')) || voices[0];
     }
 
     const utter = new SpeechSynthesisUtterance(text);
@@ -111,24 +123,22 @@ const Avatar = () => {
         const average = sum / bufferLength;
 
         if (average < 10) {
-          console.log("Voice too quiet");
+          console.log('Voice too quiet');
           return;
         }
 
         const isMale = average < 30;
         setUserGender(isMale ? 'male' : 'female');
         console.log(`Detected voice as: ${isMale ? 'male' : 'female'}`);
-
-        stream.getTracks().forEach(track => track.stop());
+        stream.getTracks().forEach((track) => track.stop());
       };
 
-      setTimeout(detectPitch, 2000); // Wait 2 seconds of mic input
+      setTimeout(detectPitch, 2000);
     } catch (error) {
-      console.error("Voice detection error:", error);
+      console.error('Voice detection error:', error);
     }
   };
 
-  // Handle input submission
   const handleSend = async (input) => {
     const query = input || userInput.trim();
     if (!query) return;
@@ -137,12 +147,11 @@ const Avatar = () => {
     try {
       await handleResponseInRequestedLanguage(query);
     } catch (error) {
-      console.error("Error detecting language:", error);
+      console.error('Error detecting language:', error);
     }
     setLoading(false);
   };
 
-  // Start listening to the user's speech
   const startListening = () => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
@@ -165,19 +174,13 @@ const Avatar = () => {
     };
 
     recognition.onerror = (event) => {
-      console.error("Speech recognition error:", event.error);
+      console.error('Speech recognition error:', event.error);
       setListening(false);
     };
 
     recognition.onend = () => {
       setListening(false);
     };
-  };
-
-  // Handle avatar click to activate listening
-  const handleAvatarClick = () => {
-    setAvatar3D(true);
-    startListening();
   };
 
   return (
@@ -189,22 +192,19 @@ const Avatar = () => {
       </header>
 
       {/* Avatar Section */}
-      <section className="flex flex-col items-center py-10">
-        <div
-          className="w-60 h-60 rounded-full overflow-hidden border-4 border-blue-500 shadow-md cursor-pointer transition-transform hover:scale-105"
-          onClick={handleAvatarClick}
-        >
-          <img
-            src={avatar3D
-                ? "https://cdn.pixabay.com/photo/2023/01/26/13/28/ai-7746446_1280.png"
-                : "https://cdn.pixabay.com/photo/2018/01/15/07/51/artificial-intelligence-3087618_1280.png"
-            }
-            alt="AI Twin Avatar"
-            className="object-cover w-full h-full"
-          />
+      <section className="flex flex-col items-center py-10 space-y-4">
+        <div onClick={startListening} className="cursor-pointer">
+          {avatarLoading ? (
+            <p className="text-gray-500">Generating avatar...</p>
+          ) : avatarUrl ? (
+            <img src={avatarUrl} alt="AI Avatar" className="w-48 h-48 rounded-full object-cover border-4 shadow-lg avatar-3d" />
+          ) : (
+            <p className="text-red-500">Failed to load avatar</p>
+          )}
         </div>
+
         <p className="mt-6 text-xl max-w-md text-center font-medium text-gray-700">
-          {listening ? "🎙️ Listening..." : "“I evolve by listening to you. Let's talk.”"}
+          {listening ? '🎙️ Listening...' : "“I evolve by listening to you. Let's talk.”"}
         </p>
       </section>
 
@@ -213,9 +213,15 @@ const Avatar = () => {
         <div className="max-w-xl mx-auto bg-white p-6 rounded-lg shadow-md space-y-6">
           {/* Language Switch */}
           <div className="flex gap-3">
-            <button onClick={() => setLanguage('en-US')} className={`px-3 py-1 rounded ${language === 'en-US' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}>English</button>
-            <button onClick={() => setLanguage('hi-IN')} className={`px-3 py-1 rounded ${language === 'hi-IN' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}>Hindi</button>
-            <button onClick={() => setLanguage('bn-IN')} className={`px-3 py-1 rounded ${language === 'bn-IN' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}>Bengali</button>
+            {['en-US', 'hi-IN', 'bn-IN'].map((lang) => (
+              <button
+                key={lang}
+                onClick={() => setLanguage(lang)}
+                className={`px-3 py-1 rounded ${language === lang ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}
+              >
+                {lang === 'en-US' ? 'English' : lang === 'hi-IN' ? 'Hindi' : 'Bengali'}
+              </button>
+            ))}
           </div>
 
           {/* Input */}
@@ -234,17 +240,17 @@ const Avatar = () => {
             <button
               onClick={() => handleSend()}
               disabled={loading}
-              className="mt-3 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+              className="mt-3 px-4 py-2 bg-blue-600 text-white rounded-md disabled:bg-gray-400"
             >
-              {loading ? "Thinking..." : "Ask"}
+              {loading ? 'Loading...' : 'Ask AI'}
             </button>
           </div>
 
           {/* AI Response */}
           {aiResponse && (
-            <div className="border-t pt-6">
-              <p className="text-gray-700 font-semibold">AI Response:</p>
-              <p className="text-lg text-gray-800">{aiResponse}</p>
+            <div>
+              <h2 className="text-xl font-semibold text-gray-800">AI Response:</h2>
+              <p className="text-gray-700">{aiResponse}</p>
             </div>
           )}
         </div>
@@ -253,4 +259,4 @@ const Avatar = () => {
   );
 };
 
-export default Avatar;
+export default Avtar;
