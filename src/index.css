@@ -1,0 +1,5 @@
+@import "tailwindcss";
+
+.homebar {
+    background-image: linear-gradient(to right top, #053705, #1c2f02, #242806, #24210f, #1f1c17);
+}
