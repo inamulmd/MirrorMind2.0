@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { generateAIResponse } from '../api/GeminiAi';  // Assuming you have this API for generating AI responses
+import { useMirror } from '../context/MirrorContext'; // Assuming MirrorContext is used to share state
+import { generateAIResponse } from '../api/GeminiAi';
 
 const Timeline = () => {
   const [year, setYear] = useState('2024');
@@ -9,35 +10,35 @@ const Timeline = () => {
   const [avatarLoading, setAvatarLoading] = useState(false);
   const [userInput, setUserInput] = useState('');
   const [aiResponse, setAiResponse] = useState('');
+  const [yesterdayResponse, setYesterdayResponse] = useState('');
+
+  const { messages, addMessage } = useMirror();
 
   useEffect(() => {
-    // Fetch timeline data based on selected year
-    fetchTimelineData(year);
-    // Generate avatar based on the year
-    generateAvatar(year);
+    // Simulate AI response for yesterday and today
+    const fetchTimelineData = async () => {
+      try {
+        // Fetch timeline data
+        const response = await axios.get(`/timeline?year=${year}`);
+        setTimelineText(response.data.responseText);
+
+        // Get AI response for 'Yesterday' (this can be dynamic or historical)
+        const yesterdayResponse = await generateAIResponse('Tell me about yesterday!');
+        setYesterdayResponse(yesterdayResponse); // Store the 'Yesterday' response
+
+        // Generate avatar
+        setAvatarLoading(true);
+        const avatarResponse = await axios.post('/generate-avatar', { description: `AI twin for the year ${year}` });
+        setAvatarUrl(avatarResponse.data.avatarUrl);
+      } catch (error) {
+        console.error('Error fetching timeline or generating avatar:', error);
+      } finally {
+        setAvatarLoading(false);
+      }
+    };
+
+    fetchTimelineData();
   }, [year]);
-
-  const fetchTimelineData = async (year) => {
-    try {
-      const response = await axios.get(`/timeline?year=${year}`);
-      setTimelineText(response.data.responseText);
-    } catch (error) {
-      console.error('Error fetching timeline data:', error);
-    }
-  };
-
-  const generateAvatar = async (year) => {
-    setAvatarLoading(true);
-    try {
-      const description = `AI twin for the year ${year}`;
-      const response = await axios.post('/generate-avatar', { description });
-      setAvatarUrl(response.data.avatarUrl);
-    } catch (error) {
-      console.error('Error generating avatar:', error);
-    } finally {
-      setAvatarLoading(false);
-    }
-  };
 
   const handleYearChange = (event) => {
     setYear(event.target.value);
@@ -50,13 +51,21 @@ const Timeline = () => {
   const handleSubmit = async () => {
     if (userInput.trim()) {
       try {
+        addMessage('user', userInput);
+
+        // Get AI response for "Now"
         const response = await generateAIResponse(userInput);
-        setAiResponse(response);
-        // You can also update timeline text based on user input if necessary
+        setAiResponse(response); // Store "Now" response
+
+        // Update timeline text with both responses (Yesterday and Now)
         setTimelineText(`You in ${year}: ${response}`);
+        addMessage('ai', response);
       } catch (error) {
         console.error('Error generating AI response:', error);
+        setAiResponse('Sorry, I could not generate a response.');
       }
+
+      setUserInput(''); // Clear input field
     }
   };
 
@@ -91,17 +100,17 @@ const Timeline = () => {
         <h2 className="text-3xl font-semibold text-gray-800 text-center mb-6">Me in <span className="text-blue-600">{year}</span></h2>
         <div className="flex flex-wrap justify-between gap-8">
           <div className="version bg-white p-6 rounded-lg shadow-lg w-full md:w-[48%]">
-            <h3 className="text-xl font-bold text-gray-800 mb-3">You Then</h3>
-            <p className="text-gray-600">{timelineText}</p>
+            <h3 className="text-xl font-bold text-gray-800 mb-3">You Then (Yesterday)</h3>
+            <p className="text-gray-600">{yesterdayResponse || 'Loading yesterday’s response...'}</p>
           </div>
           <div className="version bg-white p-6 rounded-lg shadow-lg w-full md:w-[48%]">
             <h3 className="text-xl font-bold text-gray-800 mb-3">You Now</h3>
-            <p className="text-gray-600">{aiResponse ? aiResponse : '“I am evolving through time.”'}</p>
+            <p className="text-gray-600">{aiResponse || '“I am evolving through time.”'}</p>
           </div>
         </div>
       </section>
 
-      {/* Avatar Section with 3D effect */}
+      {/* Avatar Section */}
       <section className="avatar-section mt-10 w-full max-w-lg px-6 text-center">
         <h3 className="text-2xl font-semibold text-gray-800 mb-4">Your AI Twin Avatar</h3>
         <div className={`avatar-3d ${avatarLoading ? 'animate-pulse' : ''}`}>
@@ -133,6 +142,18 @@ const Timeline = () => {
           >
             Submit
           </button>
+        </div>
+      </section>
+
+      {/* Conversation History */}
+      <section className="mt-8 w-full max-w-lg px-6">
+        <h3 className="text-xl font-bold mb-4 text-gray-800">Your Conversation</h3>
+        <div className="bg-white rounded-lg shadow p-4 space-y-2 max-h-60 overflow-y-auto">
+          {[...messages].reverse().map((msg, idx) => (
+            <div key={idx} className="text-gray-700">
+              <strong>{msg.sender === 'user' ? 'You' : 'AI'}:</strong> {msg.text}
+            </div>
+          ))}
         </div>
       </section>
     </div>

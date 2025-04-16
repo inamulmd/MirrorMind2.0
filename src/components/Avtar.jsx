@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { generateAIResponse } from '../api/GeminiAi';
-import { generateAvatarImage } from '../api/ImageApi'; // 👈 Import DeepAI function
+import { generateAvatarImage } from '../api/ImageApi';
+import { useMirror } from '../context/MirrorContext';
 
 const Avtar = () => {
   const [userInput, setUserInput] = useState('');
@@ -10,10 +11,13 @@ const Avtar = () => {
   const [language, setLanguage] = useState('en-US');
   const [voices, setVoices] = useState([]);
   const [userGender, setUserGender] = useState(null);
+  const { addMessage } = useMirror(); // Access addMessage function from context
 
   // New states for avatar image
   const [avatarUrl, setAvatarUrl] = useState(null);
   const [avatarLoading, setAvatarLoading] = useState(false);
+
+  const [conversation, setConversation] = useState([]); // Store chat log
 
   // Fetch available voices
   useEffect(() => {
@@ -39,6 +43,22 @@ const Avtar = () => {
     }
   }, [userInput]);
 
+  // Save conversation every 3 minutes
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (conversation.length > 0) {
+        // Add conversation chunk to the timeline (context)
+        addMessage({
+          timestamp: new Date().toISOString(),
+          entries: conversation,
+        });
+        setConversation([]); // Clear after saving
+      }
+    }, 180000); // 180000 ms = 3 minutes
+
+    return () => clearInterval(interval);
+  }, [conversation, addMessage]);
+
   const generateAvatar = async (description) => {
     try {
       setAvatarLoading(true);
@@ -61,12 +81,17 @@ const Avtar = () => {
     };
 
     try {
-      const response = await generateAIResponse(
+      let response = await generateAIResponse(
         `You are an assistant. Respond in ${languageMap[targetLanguage]}, but write in English script. Here's the user's message: "${input}"`
       );
 
+      // Transliterate if the response is in a non-English language
+      if (targetLanguage !== 'en-US') {
+        response = transliterateToEnglish(response);
+      }
+
       setAiResponse(response);
-      speak(response, targetLanguage);
+      speak(response, targetLanguage); // Ensure that correct voice is used
     } catch (error) {
       console.error('Error generating AI response:', error);
       setAiResponse("Oops, I couldn't respond right now.");
@@ -81,7 +106,7 @@ const Avtar = () => {
       return;
     }
 
-    const languageVoices = voices.filter((voice) => voice.lang === language);
+    const languageVoices = voices.filter((voice) => voice.lang.includes(language)); // Check for language match
 
     let selectedVoice;
 
@@ -139,19 +164,6 @@ const Avtar = () => {
     }
   };
 
-  const handleSend = async (input) => {
-    const query = input || userInput.trim();
-    if (!query) return;
-
-    setLoading(true);
-    try {
-      await handleResponseInRequestedLanguage(query);
-    } catch (error) {
-      console.error('Error detecting language:', error);
-    }
-    setLoading(false);
-  };
-
   const startListening = () => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
@@ -181,6 +193,44 @@ const Avtar = () => {
     recognition.onend = () => {
       setListening(false);
     };
+  };
+
+  const handleSend = async (inputText = userInput) => {
+    if (!inputText.trim()) return;
+
+    setLoading(true);
+
+    try {
+      const response = await generateAIResponse(inputText);
+      setAiResponse(response);
+
+      // Add to conversation
+      setConversation(prev => [
+        ...prev,
+        { user: inputText, ai: response, time: new Date().toLocaleTimeString() }
+      ]);
+
+      // Add to the timeline (MirrorContext)
+      addMessage({
+        timestamp: new Date().toISOString(),
+        entries: [
+          { user: inputText, ai: response, time: new Date().toLocaleTimeString() }
+        ]
+      });
+
+      speak(response, language);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoading(false);
+      setUserInput('');
+    }
+  };
+
+  // Function to transliterate non-English text to English script
+  const transliterateToEnglish = (text) => {
+    // Example: "नमस्ते" -> "Namaste"
+    return text; // You can implement actual transliteration logic or use a library/API
   };
 
   return (
