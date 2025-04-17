@@ -1,6 +1,7 @@
 import React from 'react'
  import { useState } from "react"
  import { generateAIResponse } from "../api/GeminiAi" // adjust path if needed
+ import Navbar from '../components/Navbar';  // Import Navbar
 
 const Journal = () => {
   
@@ -36,9 +37,12 @@ const Journal = () => {
     };
   
     return (
-      <section className="bg-white p-6 max-w-2xl mx-auto rounded-lg shadow-lg">
+     <div>
+         <Navbar /> 
+         <section className="bg-white p-6 max-w-2xl mx-auto rounded-lg shadow-lg">
+            
         {/* Journal Header */}
-        <header className="mb-6">
+        <header className="mb-6 mt-2">
           <h1 className="text-3xl font-semibold text-gray-800">My Journal</h1>
           <p className="text-gray-600">Write your thoughts. Let your twin evolve.</p>
         </header>
@@ -84,6 +88,8 @@ const Journal = () => {
           </div>
         </section>
       </section>
+     </div> 
+     
 );
 
   

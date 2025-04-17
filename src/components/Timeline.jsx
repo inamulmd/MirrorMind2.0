@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useMirror } from '../context/MirrorContext'; // Assuming MirrorContext is used to share state
 import { generateAIResponse } from '../api/GeminiAi';
+import Navbar from '../components/Navbar'; // Import the Navbar component
 
 const Timeline = () => {
   const [year, setYear] = useState('2024');
@@ -71,6 +72,8 @@ const Timeline = () => {
 
   return (
     <div className="timeline-container bg-gray-100 min-h-screen flex flex-col items-center">
+      <Navbar /> {/* Add Navbar here */}
+
       <header className="timeline-header text-center py-10 bg-gradient-to-r from-blue-500 to-indigo-600 text-white w-full">
         <h1 className="text-4xl font-bold mb-2">MirrorMind Timeline</h1>
         <p className="text-lg">Explore your evolution through time</p>

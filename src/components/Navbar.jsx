@@ -8,7 +8,7 @@ const Navbar = () => {
     <nav className="bg-gray-800 p-4">
     <div className="relative w-[1080px] ml-52 flex  justify-center items-center space-x-5.5">
       <NavLink
-        to="/"
+        to="/home"
         className={({ isActive }) =>
           `text-xl font-bold ${isActive ? 'text-yellow-400' : 'text-white hover:text-gray-300'}`
         }
@@ -36,7 +36,7 @@ const Navbar = () => {
         </NavLink>
 
         <NavLink
-          to="/avatar"
+          to="/avtar"
           className={({ isActive }) =>
             isActive ? 'text-yellow-400' : 'text-white hover:text-gray-300'
           }

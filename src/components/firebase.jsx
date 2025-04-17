@@ -1,6 +1,7 @@
 // firebase.jsx
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore'; // 🔥 Import getFirestore
 
 const VITE_FIREBASE_API_KEY = import.meta.env.VITE_FIREBASE_API_KEY;
 
@@ -22,3 +23,5 @@ const provider = new GoogleAuthProvider(); // Set up the Google provider
 
 // Export the necessary functions
 export { auth, provider, signInWithPopup };
+
+export const db = getFirestore(app);
